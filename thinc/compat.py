@@ -84,6 +84,12 @@ except ImportError:
     os_signpost = None
     has_os_signpost = False
 
+try:
+    import ivy
+    ivy.set_backend("jax")
+except ImportError:
+    ivy = None
+
 
 has_gpu = has_cupy_gpu or has_torch_mps_gpu
 
@@ -95,4 +101,5 @@ __all__ = [
     "mxnet",
     "h5py",
     "os_signpost",
+    "ivy",
 ]
