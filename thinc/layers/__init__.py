@@ -79,6 +79,7 @@ from .with_padded import with_padded
 from .with_ragged import with_ragged
 from .with_reshape import with_reshape
 from .with_signpost_interval import with_signpost_interval
+from .ivywrapper import IvyWrapper
 
 # fmt: off
 __all__ = [
@@ -164,5 +165,6 @@ __all__ = [
     "array_getitem",
     "tuplify",
     "pytorch_to_torchscript_wrapper",
+    "IvyWrapper"
 ]
 # fmt: on

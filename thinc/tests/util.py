@@ -103,6 +103,7 @@ def check_input_converters(Y, backprop, data, n_args, kwargs_keys, type_):
         return is_cupy_array(arr) or is_numpy_array(arr)
 
     input_type = type(data) if not isinstance(data, list) else tuple
+    print("dX_type", "-" * 6, ">", type(dX))
     assert isinstance(dX, input_type) or is_supported_backend_array(dX)
 
     if isinstance(data, dict):

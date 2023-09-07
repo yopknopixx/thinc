@@ -101,6 +101,7 @@ from .layers import (
     with_ragged,
     with_reshape,
     with_signpost_interval,
+    IvyWrapper,
 )
 from .loss import (
     CategoricalCrossentropy,
@@ -135,6 +136,7 @@ from .shims import (
     TorchScriptShim,
     keras_model_fns,
     maybe_handshake_model,
+    IvyShim,
 )
 from .types import ArgsKwargs, Padded, Ragged, Unserializable
 from .util import (
@@ -157,6 +159,9 @@ from .util import (
     xp2mxnet,
     xp2tensorflow,
     xp2torch,
+    ivy2xp,
+    xp2ivy,
+    is_ivy_array,
 )
 
 # fmt: off
@@ -206,6 +211,8 @@ __all__ = [
     "TensorFlowWrapper", "keras_subclass", "MXNetWrapper",
     "PyTorchWrapper_v2", "Softmax_v2", "PyTorchWrapper_v3",
     "SparseLinear_v2", "TorchScriptWrapper_v1",
+
+    "IvyWrapper", "ivy2xp", "xp2ivy", "is_ivy_array", "IvyShim",
 
     "add", "bidirectional", "chain", "clone", "concatenate", "noop",
     "residual", "uniqued", "siamese", "list2ragged", "ragged2list",

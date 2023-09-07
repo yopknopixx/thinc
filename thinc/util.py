@@ -47,6 +47,7 @@ from .compat import (
 from .compat import mxnet as mx
 from .compat import tensorflow as tf
 from .compat import torch
+from .compat import ivy
 
 DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
@@ -177,6 +178,10 @@ def is_mxnet_array(obj: Any) -> bool:  # pragma: no cover
 
 def is_mxnet_gpu_array(obj: Any) -> bool:  # pragma: no cover
     return is_mxnet_array(obj) and obj.context.device_type != "cpu"
+
+
+def is_ivy_array(obj: Any) -> bool:  # pragma: no cover
+    return ivy.is_ivy_array(obj)
 
 
 def to_numpy(data):  # pragma: no cover
@@ -431,6 +436,33 @@ def torch2xp(
             return cupy.asarray(torch_tensor)
 
 
+def ivy2xp(ivy_array: "ivy.Array", *, ops: Optional["Ops"] = None):
+    """Convert an ivy array to a numpy or cupy tensor depending on the `ops` parameter.
+    If `ops` is `None`, the type of the resultant tensor will be determined by the source tensor's device.
+    """
+    from .api import NumpyOps
+
+    # ToDo: assert_ivy_installed()
+    if ivy_array.device != "cpu":
+        if isinstance(ops, NumpyOps):
+            return ivy_array.to_numpy()
+        else:
+            return cupy.asarray(ivy_array)
+    else:
+        if isinstance(ops, NumpyOps) or ops is None:
+            return ivy_array.to_numpy()
+        else:
+            return cupy.asarray(ivy_array)
+
+
+def xp2ivy(
+    xp_tensor: ArrayXd,
+    device: Optional[str] = None,
+):
+    """Convert a numpy or cupy tensor to an ivy array."""
+    return ivy.array(xp_tensor, device=device)
+
+
 def xp2tensorflow(
     xp_tensor: ArrayXd, requires_grad: bool = False, as_variable: bool = False
 ) -> "tf.Tensor":  # pragma: no cover
@@ -667,3 +699,21 @@ __all__ = [
     "has_torch",
 ]
 # fmt: on
+
+
+def get_ivy_default_device() -> "ivy.Device":
+    if ivy is None:
+        raise ValueError("Cannot get default Ivy device when Ivy is not available.")
+
+    from .backends import get_current_ops
+    from .backends.cupy_ops import CupyOps
+    from .backends.mps_ops import MPSOps
+
+    ops = get_current_ops()
+    if isinstance(ops, CupyOps):
+        device_id = ivy.current_framework().cuda.current_device()
+        return ivy.device(f"cuda:{device_id}")
+    elif isinstance(ops, MPSOps):
+        return ivy.device("mps")
+
+    return ivy.device("cpu")

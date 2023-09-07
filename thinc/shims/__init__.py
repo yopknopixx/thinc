@@ -4,6 +4,7 @@ from .pytorch_grad_scaler import PyTorchGradScaler
 from .shim import Shim
 from .tensorflow import TensorFlowShim, keras_model_fns, maybe_handshake_model
 from .torchscript import TorchScriptShim
+from .ivy import IvyShim
 
 # fmt: off
 __all__ = [
@@ -15,5 +16,7 @@ __all__ = [
     "TorchScriptShim",
     "maybe_handshake_model",
     "keras_model_fns",
+    "IvyShim",
+
 ]
 # fmt: on
