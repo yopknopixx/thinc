@@ -20,14 +20,14 @@ InFunc = TypeVar("InFunc")
 XType = TypeVar("XType", bound=ArrayXd)
 YType = TypeVar("YType", bound=ArrayXd)
 
+
 @registry.layers("IvyWrapper.v1")
 def IvyWrapper(
     ivy_model: Any,
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
-    optimizer: Optional[Any] = None,
-    loss: Optional[Any] = None,
-
+    serialize_model: Optional[Callable[[Any], bytes]] = None,
+    deserialize_model: Optional[Callable[[Any, bytes, "str"], Any]] = None,
 ) -> Model[Any, Any]:
     if convert_inputs is None:
         convert_inputs = convert_ivy_default_inputs
@@ -40,10 +40,13 @@ def IvyWrapper(
         shims=[
             IvyShim(
                 ivy_model,
+                serialize_model=serialize_model,
+                deserialize_model=deserialize_model,
             )
         ],
         dims={"nI": None, "nO": None},
     )
+
 
 def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
     convert_inputs = model.attrs["convert_inputs"]
@@ -63,47 +66,46 @@ def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
 
     return Y, backprop
 
+
 def convert_ivy_default_inputs(
     model: Model, X: Any, is_train: bool
 ) -> Tuple[ArgsKwargs, Callable[[ArgsKwargs], Any]]:
     shim = cast(IvyShim, model.shims[0])
     xp2ivy_ = lambda x: xp2ivy(x, device=shim.device)
     converted = convert_recursive(is_xp_array, xp2ivy_, X)
-    
+
     if isinstance(converted, ArgsKwargs):
 
         def reverse_conversion(dXtorch):
             return convert_recursive(is_ivy_array, ivy2xp, dXtorch)
 
         return converted, reverse_conversion
-    
+
     elif isinstance(converted, dict):
-            
+
         def reverse_conversion(dXtorch):
             dX = convert_recursive(is_ivy_array, ivy2xp, dXtorch)
             return dX.kwargs
 
         return ArgsKwargs(args=tuple(), kwargs=converted), reverse_conversion
-    
+
     elif isinstance(converted, (tuple, list)):
-            
+
         def reverse_conversion(dXtorch):
             dX = convert_recursive(is_ivy_array, ivy2xp, dXtorch)
             return dX.args
 
         return ArgsKwargs(args=converted, kwargs={}), reverse_conversion
-    
+
     else:
 
         def reverse_conversion(dXtorch):
             return convert_recursive(is_ivy_array, ivy2xp, dXtorch)
 
         return ArgsKwargs(args=(converted,), kwargs={}), reverse_conversion
-    
 
-def convert_ivy_default_outputs(
-    model: Model, Yivy: Any, is_train: bool
-):
+
+def convert_ivy_default_outputs(model: Model, Yivy: Any, is_train: bool):
     shim = cast(IvyShim, model.shims[0])
 
     Y = convert_recursive(is_ivy_array, ivy2xp, Yivy)
@@ -111,5 +113,5 @@ def convert_ivy_default_outputs(
     def reverse_conversion(dY: Any) -> ArgsKwargs:
         dYivy = convert_recursive(is_xp_array, partial(xp2ivy, device=shim.device), dY)
         return ArgsKwargs(args=((Yivy,),), kwargs={"grad_tensors": dYivy})
+
     return Y, reverse_conversion
-    

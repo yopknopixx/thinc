@@ -86,9 +86,12 @@ except ImportError:
 
 try:
     import ivy
-    ivy.set_backend("jax")
+
+    ivy.set_backend("torch")
+    has_ivy = True
 except ImportError:
     ivy = None
+    has_ivy = False
 
 
 has_gpu = has_cupy_gpu or has_torch_mps_gpu
