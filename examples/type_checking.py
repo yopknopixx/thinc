@@ -7,7 +7,9 @@ from thinc.model import Model
 MyModelX = List[List[float]]
 MyModelY = List[List[float]]
 model: Model[MyModelX, MyModelY] = chain(
-    Relu(12), Relu(12, dropout=0.2), Softmax(),
+    Relu(12),
+    Relu(12, dropout=0.2),
+    Softmax(),
 )
 # ERROR: incompatible type "bool", expected "List[List[float]]"
 model(False)

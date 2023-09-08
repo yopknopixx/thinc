@@ -24,6 +24,7 @@ YType = TypeVar("YType", bound=ArrayXd)
 @registry.layers("IvyWrapper.v1")
 def IvyWrapper(
     ivy_model: Any,
+    loss_fn: Optional[Callable] = None,
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
     serialize_model: Optional[Callable[[Any], bytes]] = None,
@@ -40,6 +41,7 @@ def IvyWrapper(
         shims=[
             IvyShim(
                 ivy_model,
+                loss_fn=loss_fn,
                 serialize_model=serialize_model,
                 deserialize_model=deserialize_model,
             )
@@ -57,14 +59,15 @@ def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
         Y_ivy, ivy_backprop = model.shims[0](X_ivy, is_train)
     else:
         Y_ivy = model.shims[0](X_ivy, is_train)
-    Y, get_dY_ivy = convert_outputs(model, Y_ivy, is_train)
+    Y_pred, get_dY_ivy = convert_outputs(model, Y_ivy, is_train)
 
-    def backprop(dY: Any) -> Any:
-        dY_ivy = get_dY_ivy(dY)
-        dX_ivy = ivy_backprop(dY_ivy)
+    def backprop(dY: Any, Y: Any) -> Any:
+        Y = convert_inputs(model, Y, False)
+        # dY_ivy = get_dY_ivy(dY)
+        dX_ivy = ivy_backprop(None, Y)
         return get_dX(dX_ivy)
 
-    return Y, backprop
+    return Y_pred, backprop
 
 
 def convert_ivy_default_inputs(

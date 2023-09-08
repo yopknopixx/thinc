@@ -19,7 +19,12 @@ from .shim import Shim
 
 class IvyShim(Shim):
     def __init__(
-        self, model: Any, config=None, serialize_model=None, deserialize_model=None
+        self,
+        model: Any,
+        config=None,
+        loss_fn=None,
+        serialize_model=None,
+        deserialize_model=None,
     ):
         super().__init__(model, config)
         self._serialize_model = (
@@ -32,6 +37,7 @@ class IvyShim(Shim):
             if deserialize_model is not None
             else default_deserialize_ivy_model
         )
+        self.loss_fn = loss_fn
 
     def __call__(self, inputs, is_train: bool):
         if is_train:
@@ -47,22 +53,27 @@ class IvyShim(Shim):
         return self._model(*inputs.args, **inputs.kwargs)
 
     def begin_update(self, inputs: ArgsKwargs):
-        def pred_and_assign(v, x):
-            output = self._model(*x.args, **x.kwargs, v=v)
-            return output.reshape((-1,)).sum(), output
+        output = self._model(*inputs.args, **inputs.kwargs)
 
-        outs, param_grads = ivy.execute_with_gradients(
-            lambda params: pred_and_assign(*params), (self._model.v, inputs)
-        )
-        self.param_grads = param_grads["0"]
+        def backprop(d_output, target):
+            def grad_fn(v, x, y):
+                pred = self._model(x, v=v)
+                if self.loss_fn is not None:
+                    loss = self.loss_fn(y, pred)
+                    if len(loss.shape) > 0:
+                        loss = loss.reshape((-1,)).sum()
+                    return loss
+                else:
+                    return pred.reshape((-1,)).sum()
 
-        def backprop(d_output):
-            def grad_fn_dX_dPred(x):
-                return self._model(x).reshape((-1,)).sum()
+            loss, grad = ivy.execute_with_gradients(
+                lambda params: grad_fn(*params),
+                (self._model.v, inputs.args[0], target[0].args[0]),
+            )
+            self.param_grads = grad
+            return grad
 
-            return ivy.grad(grad_fn_dX_dPred)(inputs.args[0])[0]
-
-        return outs[1], backprop
+        return output, backprop
 
     def update_array(self, val, param_name, optimizer):
         param, grad = optimizer(

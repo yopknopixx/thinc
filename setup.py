@@ -21,7 +21,7 @@ MOD_NAMES = [
     "thinc.backends.numpy_ops",
     "thinc.extra.search",
     "thinc.layers.sparselinear",
-    "thinc.layers.premap_ids"
+    "thinc.layers.premap_ids",
 ]
 COMPILE_OPTIONS = {
     "msvc": ["/Ox", "/EHsc"],
@@ -82,7 +82,9 @@ def setup_package():
         ext = Extension(name, [mod_path], language="c++", include_dirs=include_dirs)
         ext_modules.append(ext)
     print("Cythonizing sources")
-    ext_modules = cythonize(ext_modules, compiler_directives=COMPILER_DIRECTIVES, language_level=2)
+    ext_modules = cythonize(
+        ext_modules, compiler_directives=COMPILER_DIRECTIVES, language_level=2
+    )
 
     setup(
         name="thinc",
