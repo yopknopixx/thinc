@@ -61,11 +61,11 @@ def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
         Y_ivy = model.shims[0](X_ivy, is_train)
     Y_pred, get_dY_ivy = convert_outputs(model, Y_ivy, is_train)
 
-    def backprop(dY: Any, Y: Any) -> Any:
-        Y = convert_inputs(model, Y, False)
-        # dY_ivy = get_dY_ivy(dY)
-        dX_ivy = ivy_backprop(None, Y)
-        return get_dX(dX_ivy)
+    def backprop(dY: Any) -> Any:
+        dYivy = get_dY_ivy(dY)
+        dX_ivy = ivy_backprop(dYivy)
+        dX = get_dX(dX_ivy)
+        return dX
 
     return Y_pred, backprop
 

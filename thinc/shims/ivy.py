@@ -52,25 +52,23 @@ class IvyShim(Shim):
     def predict(self, inputs: ArgsKwargs) -> Any:
         return self._model(*inputs.args, **inputs.kwargs)
 
+    def append_grads():
+        pass
+
     def begin_update(self, inputs: ArgsKwargs):
         output = self._model(*inputs.args, **inputs.kwargs)
 
-        def backprop(d_output, target):
-            def grad_fn(v, x, y):
+        def backprop(grads):
+            def grad_fn(v, x):
                 pred = self._model(x, v=v)
-                if self.loss_fn is not None:
-                    loss = self.loss_fn(y, pred)
-                    if len(loss.shape) > 0:
-                        loss = loss.reshape((-1,)).sum()
-                    return loss
-                else:
-                    return pred.reshape((-1,)).sum()
+                return pred.reshape((-1,)).sum()
 
             loss, grad = ivy.execute_with_gradients(
                 lambda params: grad_fn(*params),
-                (self._model.v, inputs.args[0], target[0].args[0]),
+                (self._model.v, inputs.args[0]),
             )
-            self.param_grads = grad
+            ### TODO: Combine the grads
+            self.param_grads = grad * ivy.sum(ivy.flatten(grads.args[0][0]), axis=0)
             return grad
 
         return output, backprop
@@ -89,8 +87,6 @@ class IvyShim(Shim):
 
         self._model.v.cont_map(_update_array)
         self.param_grads = None
-        # assert ivy.not_equal(tmp, self._model.v)
-        # self._model.v = optimizer.step(self._model.v, self.param_grads)
 
     @contextlib.contextmanager
     def use_params(self, params):
