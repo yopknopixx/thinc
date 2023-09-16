@@ -38,6 +38,7 @@ class IvyShim(Shim):
             else default_deserialize_ivy_model
         )
         self.loss_fn = loss_fn
+        self.param_grads = None
 
     def __call__(self, inputs, is_train: bool):
         if is_train:
@@ -47,29 +48,31 @@ class IvyShim(Shim):
 
     @property
     def device(self):
-        return self._model._dev
+        try:
+            return self._model._dev
+        except AttributeError:
+            return ivy.default_device()
 
     def predict(self, inputs: ArgsKwargs) -> Any:
         return self._model(*inputs.args, **inputs.kwargs)
 
-    def append_grads():
+    def append_grads(self, grads: ivy.Array):
         pass
 
     def begin_update(self, inputs: ArgsKwargs):
         output = self._model(*inputs.args, **inputs.kwargs)
 
         def backprop(grads):
-            def grad_fn(v, x):
-                pred = self._model(x, v=v)
-                return pred.reshape((-1,)).sum()
+            def predict(v, x):
+                return self._model(x, v=v)
 
-            loss, grad = ivy.execute_with_gradients(
-                lambda params: grad_fn(*params),
+            loss, grads = ivy.execute_with_gradients(
+                lambda params: predict(*params),
                 (self._model.v, inputs.args[0]),
+                output_grads=grads.kwargs['grad_tensors'],
             )
-            ### TODO: Combine the grads
-            self.param_grads = grad * ivy.sum(ivy.flatten(grads.args[0][0]), axis=0)
-            return grad
+            self.param_grads = grads
+            return self.param_grads
 
         return output, backprop
 
@@ -84,7 +87,7 @@ class IvyShim(Shim):
     def finish_update(self, optimizer: Optimizer):
         def _update_array(grad, param_name):
             return self.update_array(grad, param_name, optimizer)
-
+        grads = self.param_grads
         self._model.v.cont_map(_update_array)
         self.param_grads = None
 
