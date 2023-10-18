@@ -63,9 +63,10 @@ except ImportError:  # pragma: no cover
 
 
 try:  # pragma: no cover
-    import mxnet
+    # import mxnet
 
-    has_mxnet = True
+    # has_mxnet = True
+    raise ImportError
 except ImportError:  # pragma: no cover
     mxnet = None
     has_mxnet = False

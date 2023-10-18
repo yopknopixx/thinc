@@ -60,18 +60,12 @@ class IvyShim(Shim):
         pass
 
     def begin_update(self, inputs: ArgsKwargs):
-        output = self._model(*inputs.args, **inputs.kwargs)
+        output, vjp_fun = ivy.vjp(
+            lambda input_v: self._model(inputs.args[0], v=input_v), self._model.v
+        )
 
         def backprop(grads):
-            def predict(v, x):
-                return self._model(x, v=v)
-
-            loss, grads = ivy.execute_with_gradients(
-                lambda params: predict(*params),
-                (self._model.v, inputs.args[0]),
-                output_grads=grads.kwargs['grad_tensors'],
-            )
-            self.param_grads = grads
+            self.param_grads = vjp_fun(grads.args[0][0][0])[0]
             return self.param_grads
 
         return output, backprop
@@ -87,8 +81,13 @@ class IvyShim(Shim):
     def finish_update(self, optimizer: Optimizer):
         def _update_array(grad, param_name):
             return self.update_array(grad, param_name, optimizer)
-        grads = self.param_grads
-        self._model.v.cont_map(_update_array)
+
+        prev_v = self._model.v.cont_flatten_key_chains()
+        self._model.v.cont_map(_update_array, inplace=True)
+        new_v = self._model.v.cont_flatten_key_chains()
+        tt = ivy.sum(prev_v == new_v)
+        print(tt)
+
         self.param_grads = None
 
     @contextlib.contextmanager
